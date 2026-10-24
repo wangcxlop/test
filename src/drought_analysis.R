@@ -244,55 +244,6 @@ window_layer_sensitivity <- function(dat, cor_cut) {
   sensitivity
 }
 
-# 英文图标签保证跨系统字体可用，分析注释与方法说明为中文。
-draw_plot <- function(name, fun, out_dir, height = 1000) {
-  png(file.path(out_dir, name), width = 1600, height = height, res = 150)
-  on.exit(dev.off())
-  fun()
-}
-
-plot_drought_results <- function(dat, slopes, threshold, cor_cut, two_groups, out_dir) {
-  draw_plot(out_dir = out_dir, name = "12_time_series.png", function() {
-    par(mfrow = c(3, 1), mar = c(3, 4, 2, 1))
-    plot(dat$date, dat$D_VPD, type = "l", col = "firebrick", ylab = "Drought z-score",
-         xlab = "", main = paste(unique(dat$site), "- VPD and surface SM"),
-         ylim = range(c(dat$D_VPD, dat$D_SM1), na.rm = TRUE))
-    lines(dat$date, dat$D_SM1, col = "steelblue")
-    abline(h = threshold, lty = 2)
-    legend("topleft", c("VPD (higher = drier)", "SM1 (higher = drier)"),
-           col = c("firebrick", "steelblue"), lty = 1, bty = "n", cex = 0.8)
-    plot(dat$date, dat$r_SM1, type = "l", ylim = c(-1, 1), ylab = "Rolling r", xlab = "")
-    abline(h = c(0, cor_cut), lty = c(3, 2), col = c("grey50", "firebrick"))
-    plot(dat$date, dat$GPP, type = "l", ylab = "GPP anomaly", xlab = "Date")
-    abline(h = 0, lty = 2)
-  }, height = 1200)
-  draw_plot(out_dir = out_dir, name = "13_GPP_groups.png", function() {
-    par(mfrow = c(1, 2), mar = c(7, 4, 3, 1))
-    boxplot(GPP ~ coupling, data = dat, col = c("grey80", "tan"), las = 2,
-            xlab = "", ylab = "GPP anomaly", main = "By rolling-correlation regime")
-    if (!two_groups) mtext("Only one regime observed; no between-regime comparison", side = 3, cex = 0.65)
-    abline(h = 0, lty = 2)
-    boxplot(GPP ~ drought_state, data = dat,
-            col = c("tomato", "grey85", "steelblue", "gold"), las = 2,
-            xlab = "", ylab = "GPP anomaly", main = "By actual drought occurrence")
-    abline(h = 0, lty = 2)
-  })
-  draw_plot(out_dir = out_dir, name = "14_response_slopes.png", function() {
-    par(mar = c(5, 5, 3, 1))
-    y <- slopes$slope
-    plot(seq_along(y), y, xlim = c(0.5, length(y) + 0.5),
-         ylim = range(c(0, slopes$lower_95, slopes$upper_95), na.rm = TRUE),
-         pch = 19, xaxt = "n", xlab = "", ylab = "Adjusted GPP slope per drought z",
-         main = "GPP response with 95% moving-block bootstrap intervals")
-    axis(1, at = seq_along(y), labels = paste(slopes$index, slopes$coupling, sep = "\n"),
-         las = 1, cex.axis = 0.8)
-    if (!two_groups) mtext("Missing regime: slope not estimable", side = 3, cex = 0.7)
-    arrows(seq_along(y), slopes$lower_95, seq_along(y), slopes$upper_95,
-           angle = 90, code = 3, length = 0.06)
-    abline(h = 0, lty = 2)
-  })
-}
-
 drought_analysis_notes <- function(met, gpp, matched, threshold, window_n, cor_cut, bootstrap_n, model_result) {
   two_groups <- model_result$two_groups
   block_n <- model_result$block_n
@@ -327,9 +278,11 @@ drought_analysis_notes <- function(met, gpp, matched, threshold, window_n, cor_c
 
 # 完整流程；返回命名列表供交互检查，输出文件名与原脚本一致。
 # data_dir为输入目录，out_dir为输出目录；相同种子复现bootstrap结果。
+# plotter为可选绘图函数；NULL时只计算与导出，标准入口负责传入绘图函数。
 run_drought_analysis <- function(data_dir, out_dir, threshold = 1, window_n = 23L,
                                  cor_cut = 0.3, bootstrap_n = 999L,
-                                 block_n = 23L, seed = 20261023) {
+                                 block_n = 23L, seed = 20261023, plotter = NULL) {
+  if (!is.null(plotter) && !is.function(plotter)) stop("plotter必须是函数或NULL")
   set.seed(seed)
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
   inputs <- read_drought_inputs(data_dir)
@@ -371,8 +324,13 @@ run_drought_analysis <- function(data_dir, out_dir, threshold = 1, window_n = 23
   for (i in seq_along(tables)) save_table(tables[[i]], filenames[i], out_dir)
   capture.output(summary(response$model),
                  file = file.path(out_dir, "07_model_descriptive.txt"))
-  plot_drought_results(response$data, response$slopes, threshold, cor_cut,
-                       response$two_groups, out_dir)
+  saveRDS(list(threshold = threshold, cor_cut = cor_cut),
+          file.path(out_dir, "plot_settings.rds"))
+  if (!is.null(plotter)) {
+    plotter(dat = response$data, slopes = response$slopes,
+            threshold = threshold, cor_cut = cor_cut,
+            two_groups = response$two_groups, out_dir = file.path(out_dir, "images"))
+  }
   writeLines(notes, file.path(out_dir, "15_methods_and_results.txt"), useBytes = TRUE)
   capture.output(sessionInfo(), file = file.path(out_dir, "16_sessionInfo.txt"))
 

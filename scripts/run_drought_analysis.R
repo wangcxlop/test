@@ -23,6 +23,8 @@ drought_result <- local({
   project_root <- dirname(dirname(entry_file))
   sys.source(file.path(project_root, "src", "drought_analysis.R"),
              envir = environment())
+  sys.source(file.path(project_root, "scripts", "codeforimages", "plot_drought_results.R"),
+             envir = environment())
 
   # 所有运行参数集中在这里；修改阈值时需保留其方法学含义。
   config <- list(
@@ -33,7 +35,8 @@ drought_result <- local({
     cor_cut = 0.3,         # 同步耦合的操作性相关阈值
     bootstrap_n = 999L,
     block_n = 23L,
-    seed = 20261023
+    seed = 20261023,
+    plotter = plot_drought_results # 图片统一保存到output/images/
   )
   do.call(run_drought_analysis, config)
 })
