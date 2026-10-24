@@ -1,12 +1,7 @@
-# 数据读写与质量检查；加载时只定义函数。
-# 仅使用base R；GPP已为异常值，不再重复去季节化。
+# 读取和保存数据
+# GPP已是异常值，无需再去季节化
 
-# 文件读写与数据质量检查 ------------------------------------------------
-save_table <- function(x, name, out_dir) {
-  write.csv(x, file.path(out_dir, name), row.names = FALSE,
-            fileEncoding = "UTF-8", na = "")
-}
-
+# 检查日期、站点和重复记录
 read_input <- function(name, required, data_dir) {
   path <- file.path(data_dir, name)
   if (!file.exists(path)) stop("找不到文件：", path)
@@ -27,20 +22,28 @@ read_drought_inputs <- function(data_dir) {
   if (!all(vapply(met[vars], is.numeric, logical(1))) || !is.numeric(gpp$GPP)) {
     stop("分析变量必须为数值列")
   }
-  list(met = met[c("site", "date", vars)], gpp = gpp[c("site", "date", "GPP")], vars = vars)
+  list(met = met[c("site", "date", vars)], gpp = gpp[c("site", "date", "GPP")])
 }
 
-# 导出两份核心CSV，报告和元数据分别写入子目录。
-# 统计计算在其他模块完成，这里只负责文件写入。
-write_drought_outputs <- function(analysis_data, response, notes, threshold, cor_cut, out_dir) {
-  report_dir <- file.path(out_dir, "reports")
-  metadata_dir <- file.path(out_dir, "metadata")
-  for (path in c(out_dir, report_dir, metadata_dir)) {
-    dir.create(path, recursive = TRUE, showWarnings = FALSE)
-  }
-  save_table(analysis_data, "04_analysis_data.csv", out_dir)
-  save_table(response, "10_GPP_group_summary.csv", out_dir)
-  writeLines(notes, file.path(report_dir, "15_methods_and_results.txt"), useBytes = TRUE)
-  saveRDS(list(threshold = threshold, cor_cut = cor_cut),
-          file.path(metadata_dir, "plot_settings.rds"))
+# 保存结果
+write_drought_outputs <- function(dat, response, event_summary, out_dir, window_n) {
+  dir.create(file.path(out_dir, "reports"), recursive = TRUE, showWarnings = FALSE)
+  write.csv(dat, file.path(out_dir, "04_analysis_data.csv"), row.names = FALSE, na = "")
+  write.csv(response, file.path(out_dir, "10_GPP_group_summary.csv"), row.names = FALSE, na = "")
+  notes <- capture.output({
+    cat("站点：", unique(dat$site), "；按站点和日期精确匹配，不插值。\n")
+    cat("VPD按年内8天时段标准化，SM1标准化后取负号；均为越大越干。\n")
+    cat("干旱阈值：", dat$threshold[1], "；滑动窗口：", window_n,
+        "期；同步耦合阈值：", dat$cor_cut[1], "。\n")
+    cat("强度为时间加权平均指数，时长为覆盖天数，烈度为sum(指数*天数)。\n")
+    cat("\n干旱事件汇总（各事件等权平均）：\n")
+    print(event_summary, row.names = FALSE, digits = 4)
+    cat("\n分组GPP均值与Pearson相关：\n")
+    print(response, row.names = FALSE, digits = 4)
+    missing <- response$group[response$grouping == "coupling" & response$n_GPP == 0]
+    if (length(missing)) cat("\n没有有效GPP样本的耦合组：", missing,
+                             "；无法比较同步与不同步组。\n")
+    cat("NA表示无法估计。耦合同步不等于同时发生干旱；这些结果是关联，不代表因果或统计显著。\n")
+  })
+  writeLines(notes, file.path(out_dir, "reports", "15_methods_and_results.txt"), useBytes = TRUE)
 }

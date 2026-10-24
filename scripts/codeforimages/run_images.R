@@ -1,8 +1,8 @@
-# 独立绘图入口：仅读取已有CSV和绘图参数，不重新执行分析。
-# 项目根目录运行：Rscript scripts/codeforimages/run_images.R
+# 读取分析CSV，单独画图
+# 终端：Rscript scripts/codeforimages/run_images.R
 # RStudio：source("scripts/codeforimages/run_images.R", encoding = "UTF-8")
 local({
-  # 根据入口位置定位项目，支持不同工作目录和source(chdir=TRUE)。
+  # 根据脚本位置定位项目
   source_files <- lapply(sys.frames(), function(frame) frame$ofile)
   source_files <- Filter(function(path) is.character(path) && length(path) == 1L,
                          source_files)
@@ -22,8 +22,10 @@ local({
   sys.source(file.path(dirname(entry_file), "plot_drought_results.R"),
              envir = environment())
   out_dir <- file.path(project_root, "output")
-  inputs <- read_plot_inputs(out_dir)
+  dat <- read.csv(file.path(out_dir, "04_analysis_data.csv"), stringsAsFactors = FALSE,
+                  na.strings = c("", "NA"))
+  dat$date <- as.Date(dat$date)
   image_dir <- file.path(out_dir, "images")
-  do.call(plot_drought_results, c(inputs, list(out_dir = image_dir)))
+  plot_drought_results(dat, image_dir)
   cat("绘图完成！图片目录：", image_dir, "\n")
 })

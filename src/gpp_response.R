@@ -1,4 +1,4 @@
-# GPP分组均值与Pearson相关分析；加载时只定义函数。
+# 比较各组GPP均值和Pearson相关
 
 paired_correlation <- function(x, y) {
   ok <- is.finite(x) & is.finite(y)
@@ -8,15 +8,18 @@ paired_correlation <- function(x, y) {
 }
 
 group_summary <- function(dat, col, groups) {
-  do.call(rbind, lapply(groups, function(group) {
+  result <- data.frame()
+  for (group in groups) {
     d <- dat[!is.na(dat[[col]]) & dat[[col]] == group, ]
     gpp <- d$GPP[is.finite(d$GPP)]
     vpd <- paired_correlation(d$GPP, d$D_VPD)
     sm <- paired_correlation(d$GPP, d$D_SM1)
-    data.frame(grouping = col, group = group, n_GPP = length(gpp),
+    row <- data.frame(grouping = col, group = group, n_GPP = length(gpp),
                mean_GPP = if (length(gpp)) mean(gpp) else NA_real_,
                n_VPD = vpd$n, r_VPD = vpd$r, n_SM1 = sm$n, r_SM1 = sm$r)
-  }))
+    result <- rbind(result, row)
+  }
+  result
 }
 
 analyze_gpp_response <- function(dat) {

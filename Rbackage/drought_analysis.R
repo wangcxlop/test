@@ -1,5 +1,4 @@
-# 兼容旧入口；实际函数位于src/，运行参数位于scripts/。
-# 原来的Rscript命令和source()调用仍然可用。
+# 旧入口，调用完整分析脚本
 local({
   source_files <- lapply(sys.frames(), function(frame) frame$ofile)
   source_files <- Filter(function(path) is.character(path) && length(path) == 1L,

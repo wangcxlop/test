@@ -1,10 +1,9 @@
-# 干旱分析运行入口：支持Rscript和RStudio的Source。
-# 终端（项目根目录）：Rscript scripts/run_drought_analysis.R
-# R控制台（项目根目录）：source("scripts/run_drought_analysis.R", encoding = "UTF-8")
-# 完整结果保存为drought_result；数据和输出路径根据本文件位置确定。
+# 运行完整分析和绘图
+# 终端：Rscript scripts/run_drought_analysis.R
+# R控制台：source("scripts/run_drought_analysis.R", encoding = "UTF-8")
+# 结果保存在drought_result
 drought_result <- local({
-  # source()优先使用当前文件的ofile；直接Rscript执行时读取--file。
-  # chdir=TRUE时相对ofile可能已失效，因此同时检查当前目录下的文件名。
+  # 根据脚本位置定位项目
   source_files <- lapply(sys.frames(), function(frame) frame$ofile)
   source_files <- Filter(function(path) is.character(path) && length(path) == 1L,
                          source_files)
@@ -21,7 +20,7 @@ drought_result <- local({
   }
   entry_file <- normalizePath(entry_file, mustWork = TRUE)
   project_root <- dirname(dirname(entry_file))
-  # 依次加载数据读写、干旱指标、GPP响应和主流程；模块只定义函数。
+  # 加载四个分析模块
   modules <- c("data_io.R", "drought_indices.R", "gpp_response.R", "drought_analysis.R")
   for (module in modules) {
     sys.source(file.path(project_root, "src", module), envir = environment())
@@ -29,14 +28,13 @@ drought_result <- local({
   sys.source(file.path(project_root, "scripts", "codeforimages", "plot_drought_results.R"),
              envir = environment())
 
-  # 所有运行参数集中在这里；修改阈值时需保留其方法学含义。
-  config <- list(
-    data_dir = file.path(project_root, "Rbackage"),
-    out_dir = file.path(project_root, "output"),
-    threshold = 1,          # 干旱阈值：季节性z分数>=1
-    window_n = 23L,        # 向后23期滑动窗口，约半年
-    cor_cut = 0.3,         # 同步耦合的操作性相关阈值
-    plotter = plot_drought_results # 图片统一保存到output/images/
-  )
-  do.call(run_drought_analysis, config)
+  # 设置路径和参数
+  data_dir <- file.path(project_root, "Rbackage")
+  out_dir <- file.path(project_root, "output")
+  threshold <- 1       # 干旱阈值
+  window_n <- 23L     # 滑动窗口，约半年
+  cor_cut <- 0.3      # 同步耦合阈值
+  result <- run_drought_analysis(data_dir, out_dir, threshold, window_n, cor_cut)
+  plot_drought_results(result$data, file.path(out_dir, "images"))
+  result
 })
