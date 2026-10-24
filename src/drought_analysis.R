@@ -276,7 +276,7 @@ drought_analysis_notes <- function(met, gpp, matched, threshold, window_n, cor_c
   notes
 }
 
-# 完整流程；返回命名列表供交互检查，输出文件名与原脚本一致。
+# 完整流程；只导出两份核心CSV，详细统计保留在返回的命名列表中。
 # data_dir为输入目录，out_dir为输出目录；相同种子复现bootstrap结果。
 # plotter为可选绘图函数；NULL时只计算与导出，标准入口负责传入绘图函数。
 run_drought_analysis <- function(data_dir, out_dir, threshold = 1, window_n = 23L,
@@ -313,15 +313,9 @@ run_drought_analysis <- function(data_dir, out_dir, threshold = 1, window_n = 23
             all(events$severity_z_days >= events$duration_days * threshold - 1e-10),
             all(response$coefficients$bootstrap_valid >= bootstrap_n * 0.8))
 
-  tables <- list(inputs$quality, events, met, analysis_data, coupling_summary,
-                 state_summary, response$coefficients, response$mean_difference,
-                 response$slopes, sensitivity)
-  filenames <- c("01_missing_values.csv", "02_drought_events.csv",
-                 "03_indices_and_rolling_correlations.csv", "04_analysis_data.csv",
-                 "05_GPP_by_coupling.csv", "06_GPP_by_drought_state.csv",
-                 "08_model_block_bootstrap_CI.csv", "09_GPP_mean_difference_CI.csv",
-                 "10_GPP_response_slopes.csv", "11_window_layer_sensitivity.csv")
-  for (i in seq_along(tables)) save_table(tables[[i]], filenames[i], out_dir)
+  # 保留分析时间序列和响应斜率，满足研究问题及独立绘图所需。
+  save_table(analysis_data, "04_analysis_data.csv", out_dir)
+  save_table(response$slopes, "10_GPP_response_slopes.csv", out_dir)
   capture.output(summary(response$model),
                  file = file.path(out_dir, "07_model_descriptive.txt"))
   saveRDS(list(threshold = threshold, cor_cut = cor_cut),
