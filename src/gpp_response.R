@@ -8,21 +8,26 @@ paired_correlation <- function(x, y) {
 }
 
 group_summary <- function(dat, col, groups) {
-  result <- data.frame()
-  for (group in groups) {
-    d <- dat[!is.na(dat[[col]]) & dat[[col]] == group, ]
-    gpp <- d$GPP[is.finite(d$GPP)]
-    vpd <- paired_correlation(d$GPP, d$D_VPD)
-    sm <- paired_correlation(d$GPP, d$D_SM1)
-    row <- data.frame(grouping = col, group = group, n_GPP = length(gpp),
-               mean_GPP = if (length(gpp)) mean(gpp) else NA_real_,
-               n_VPD = vpd$n, r_VPD = vpd$r, n_SM1 = sm$n, r_SM1 = sm$r)
-    result <- rbind(result, row)
-  }
-  result
+  dat |>
+    rename(group = all_of(col)) |>
+    mutate(group = factor(group, levels = groups)) |>
+    filter(!is.na(group), is.finite(GPP)) |>
+    group_by(group, .drop = FALSE) |>
+    summarise(
+      n_GPP = n(),
+      mean_GPP = if (n_GPP > 0) mean(GPP) else NA_real_,
+      n_VPD = sum(is.finite(D_VPD)),
+      r_VPD = paired_correlation(GPP, D_VPD)$r,
+      n_SM1 = sum(is.finite(D_SM1)),
+      r_SM1 = paired_correlation(GPP, D_SM1)$r,
+      .groups = "drop") |>
+    mutate(grouping = col, group = as.character(group)) |>
+    relocate(grouping, group) |>
+    as.data.frame()
 }
 
 analyze_gpp_response <- function(dat) {
-  rbind(group_summary(dat, "coupling", c("Asynchronous", "Synchronous")),
-        group_summary(dat, "drought_state", c("Both", "VPD_only", "SM_only", "Neither")))
+  bind_rows(
+    group_summary(dat, "coupling", c("Asynchronous", "Synchronous")),
+    group_summary(dat, "drought_state", c("Both", "VPD_only", "SM_only", "Neither")))
 }

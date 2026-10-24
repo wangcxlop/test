@@ -1,8 +1,10 @@
 # 运行完整分析和绘图
+# 首次使用前安装：install.packages("dplyr")
 # 终端：Rscript scripts/run_drought_analysis.R
 # R控制台：source("scripts/run_drought_analysis.R", encoding = "UTF-8")
 # 结果保存在drought_result
 drought_result <- local({
+  suppressPackageStartupMessages(library(dplyr))
   # 根据脚本位置定位项目
   source_files <- lapply(sys.frames(), function(frame) frame$ofile)
   source_files <- Filter(function(path) is.character(path) && length(path) == 1L,

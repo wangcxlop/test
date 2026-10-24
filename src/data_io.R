@@ -7,10 +7,11 @@ read_input <- function(name, required, data_dir) {
   if (!file.exists(path)) stop("找不到文件：", path)
   x <- read.csv(path, stringsAsFactors = FALSE, check.names = FALSE)
   if (!all(required %in% names(x))) stop(name, "缺少必要列")
-  x$date <- as.Date(x$date)
+  x <- x |> mutate(date = as.Date(date))
   if (anyNA(x$date) || anyNA(x$site)) stop(name, "存在无效日期或站点")
-  if (anyDuplicated(x[c("site", "date")])) stop(name, "存在重复站点日期")
-  x[order(x$site, x$date), ]
+  duplicates <- x |> count(site, date, name = "n_records") |> filter(n_records > 1)
+  if (nrow(duplicates)) stop(name, "存在重复站点日期")
+  x |> arrange(site, date)
 }
 
 read_drought_inputs <- function(data_dir) {
@@ -22,7 +23,8 @@ read_drought_inputs <- function(data_dir) {
   if (!all(vapply(met[vars], is.numeric, logical(1))) || !is.numeric(gpp$GPP)) {
     stop("分析变量必须为数值列")
   }
-  list(met = met[c("site", "date", vars)], gpp = gpp[c("site", "date", "GPP")])
+  list(met = met |> select(site, date, all_of(vars)),
+       gpp = gpp |> select(site, date, GPP))
 }
 
 # 保存结果

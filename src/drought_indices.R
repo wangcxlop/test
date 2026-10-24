@@ -2,13 +2,11 @@
 
 # 按年内8天时段，用全期数据计算季节性z分数
 # SM指数取负号，数值越大越干；不是SPI/SPEI
-seasonal_z <- function(x, slot) {
+seasonal_z <- function(x) {
   z <- rep(NA_real_, length(x))
-  for (s in unique(slot)) {
-    ids <- which(slot == s & is.finite(x))
-    if (length(ids) >= 5L && sd(x[ids]) > 0) {
-      z[ids] <- (x[ids] - mean(x[ids])) / sd(x[ids])
-    }
+  ok <- is.finite(x)
+  if (sum(ok) >= 5L && sd(x[ok]) > 0) {
+    z[ok] <- (x[ok] - mean(x[ok])) / sd(x[ok])
   }
   z
 }
@@ -58,25 +56,26 @@ rolling_cor <- function(x, y, dates, width) {
 }
 
 prepare_drought_indices <- function(met, threshold, window_n, cor_cut) {
-  met$slot <- (as.integer(format(met$date, "%j")) - 1L) %/% 8L + 1L
-
-  for (v in c("VPD", "SM1")) met[[paste0("Z_", v)]] <- seasonal_z(met[[v]], met$slot)
-  met$D_VPD <- met$Z_VPD
-  met$D_SM1 <- -met$Z_SM1
-  # 两种指数越大越干，正相关表示同向变化
-  met$days <- c(pmin(8, as.numeric(diff(met$date))), 8)
-
-  met$r_SM1 <- rolling_cor(met$D_VPD, met$D_SM1, met$date, window_n)
-  # 按相关系数分类；耦合同步不等于同时干旱
-  met$coupling <- ifelse(is.na(met$r_SM1), NA_character_,
-                         ifelse(met$r_SM1 >= cor_cut, "Synchronous", "Asynchronous"))
-  # 判断两种干旱是否同时发生
-  met$drought_state <- NA_character_
-  ok <- is.finite(met$D_VPD) & is.finite(met$D_SM1)
-  a <- met$D_VPD[ok] >= threshold
-  b <- met$D_SM1[ok] >= threshold
-  met$drought_state[ok] <- ifelse(a & b, "Both", ifelse(a, "VPD_only",
-                                                     ifelse(b, "SM_only", "Neither")))
-  met
+  met |>
+    mutate(slot = (as.integer(format(date, "%j")) - 1L) %/% 8L + 1L) |>
+    group_by(slot) |>
+    mutate(Z_VPD = seasonal_z(VPD), Z_SM1 = seasonal_z(SM1)) |>
+    ungroup() |>
+    arrange(date) |>
+    mutate(
+      D_VPD = Z_VPD, D_SM1 = -Z_SM1, # 两种指数越大越干
+      days = c(pmin(8, as.numeric(diff(date))), 8),
+      r_SM1 = rolling_cor(D_VPD, D_SM1, date, window_n),
+      # 耦合同步不等于同时干旱
+      coupling = case_when(
+        is.na(r_SM1) ~ NA_character_,
+        r_SM1 >= cor_cut ~ "Synchronous",
+        TRUE ~ "Asynchronous"),
+      drought_state = case_when(
+        !is.finite(D_VPD) | !is.finite(D_SM1) ~ NA_character_,
+        D_VPD >= threshold & D_SM1 >= threshold ~ "Both",
+        D_VPD >= threshold ~ "VPD_only",
+        D_SM1 >= threshold ~ "SM_only",
+        TRUE ~ "Neither")) |>
+    as.data.frame()
 }
-
