@@ -21,8 +21,11 @@ drought_result <- local({
   }
   entry_file <- normalizePath(entry_file, mustWork = TRUE)
   project_root <- dirname(dirname(entry_file))
-  sys.source(file.path(project_root, "src", "drought_analysis.R"),
-             envir = environment())
+  # 依次加载数据读写、干旱指标、GPP响应和主流程；模块只定义函数。
+  modules <- c("data_io.R", "drought_indices.R", "gpp_response.R", "drought_analysis.R")
+  for (module in modules) {
+    sys.source(file.path(project_root, "src", module), envir = environment())
+  }
   sys.source(file.path(project_root, "scripts", "codeforimages", "plot_drought_results.R"),
              envir = environment())
 

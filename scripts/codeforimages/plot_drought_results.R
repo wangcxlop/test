@@ -2,7 +2,8 @@
 
 # 从完整分析的输出恢复绘图数据，不运行回归或bootstrap。
 read_plot_inputs <- function(out_dir) {
-  files <- c("04_analysis_data.csv", "10_GPP_response_slopes.csv", "plot_settings.rds")
+  files <- c("04_analysis_data.csv", "10_GPP_response_slopes.csv",
+             file.path("metadata", "plot_settings.rds"))
   missing <- files[!file.exists(file.path(out_dir, files))]
   if (length(missing)) {
     stop("缺少绘图输入：", paste(missing, collapse = ", "),
