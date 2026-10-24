@@ -19,25 +19,15 @@ read_input <- function(name, required, data_dir) {
 }
 
 read_drought_inputs <- function(data_dir) {
-  met <- read_input(data_dir = data_dir, "ERA5L_TWSA.csv",
-                    c("site", "date", "VPD", paste0("SM", 1:4), "Tavg", "Rs"))
-  gpp <- read_input(data_dir = data_dir, "GPP_anomaly.csv", c("site", "date", "GPP"))
+  vars <- c("VPD", "SM1")
+  met <- read_input("ERA5L_TWSA.csv", c("site", "date", vars), data_dir)
+  gpp <- read_input("GPP_anomaly.csv", c("site", "date", "GPP"), data_dir)
   if (length(unique(met$site)) != 1L || length(unique(gpp$site)) != 1L ||
       unique(met$site) != unique(gpp$site)) stop("本脚本要求两份文件为同一个站点")
-  vars <- c("VPD", paste0("SM", 1:4), "Tavg", "Rs")
   if (!all(vapply(met[vars], is.numeric, logical(1))) || !is.numeric(gpp$GPP)) {
     stop("分析变量必须为数值列")
   }
-  if (any(met$VPD < 0, na.rm = TRUE) ||
-      any(as.matrix(met[paste0("SM", 1:4)]) < 0, na.rm = TRUE) ||
-      any(as.matrix(met[paste0("SM", 1:4)]) > 1, na.rm = TRUE)) {
-    stop("VPD或土壤体积含水量超出合理范围，请核对单位")
-  }
-  quality <- do.call(rbind, lapply(list(met = met, gpp = gpp), function(x) {
-    data.frame(variable = names(x), missing = vapply(x, function(z) sum(is.na(z)), 0L))
-  }))
-  quality$dataset <- rep(c("met", "gpp"), c(ncol(met), ncol(gpp)))
-  list(met = met, gpp = gpp, quality = quality, vars = vars)
+  list(met = met[c("site", "date", vars)], gpp = gpp[c("site", "date", "GPP")], vars = vars)
 }
 
 # 导出两份核心CSV，报告和元数据分别写入子目录。
@@ -49,11 +39,8 @@ write_drought_outputs <- function(analysis_data, response, notes, threshold, cor
     dir.create(path, recursive = TRUE, showWarnings = FALSE)
   }
   save_table(analysis_data, "04_analysis_data.csv", out_dir)
-  save_table(response$slopes, "10_GPP_response_slopes.csv", out_dir)
-  capture.output(summary(response$model),
-                 file = file.path(report_dir, "07_model_descriptive.txt"))
+  save_table(response, "10_GPP_group_summary.csv", out_dir)
   writeLines(notes, file.path(report_dir, "15_methods_and_results.txt"), useBytes = TRUE)
   saveRDS(list(threshold = threshold, cor_cut = cor_cut),
           file.path(metadata_dir, "plot_settings.rds"))
-  capture.output(sessionInfo(), file = file.path(metadata_dir, "16_sessionInfo.txt"))
 }

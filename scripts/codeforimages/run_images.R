@@ -1,4 +1,4 @@
-# 独立绘图入口：仅读取已有CSV和绘图参数，不重新计算分析或bootstrap。
+# 独立绘图入口：仅读取已有CSV和绘图参数，不重新执行分析。
 # 项目根目录运行：Rscript scripts/codeforimages/run_images.R
 # RStudio：source("scripts/codeforimages/run_images.R", encoding = "UTF-8")
 local({

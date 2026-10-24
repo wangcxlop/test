@@ -21,8 +21,7 @@ event_table <- function(dates, index, days, label, threshold) {
   empty <- data.frame(index = character(), start = as.Date(character()),
                       end = as.Date(character()), n_periods = integer(),
                       duration_days = numeric(), intensity = numeric(),
-                      peak = numeric(), severity_z_days = numeric(),
-                      excess_severity_z_days = numeric(), boundary_or_gap = logical())
+                      severity_z_days = numeric(), boundary_or_gap = logical())
   if (!length(starts)) return(empty)
   do.call(rbind, lapply(starts, function(i) {
     j <- i
@@ -33,9 +32,8 @@ event_table <- function(dates, index, days, label, threshold) {
     if (j < length(dry)) censored <- censored || gap[j + 1L] || !is.finite(index[j + 1L])
     data.frame(index = label, start = dates[i], end = dates[j] + days[j] - 1,
                n_periods = length(ids), duration_days = sum(days[ids]),
-               intensity = weighted.mean(index[ids], days[ids]), peak = max(index[ids]),
+               intensity = weighted.mean(index[ids], days[ids]),
                severity_z_days = sum(index[ids] * days[ids]),
-               excess_severity_z_days = sum((index[ids] - threshold) * days[ids]),
                boundary_or_gap = censored)
   }))
 }
@@ -61,14 +59,11 @@ prepare_drought_indices <- function(met, vars, threshold, window_n, cor_cut) {
 
   for (v in vars) met[[paste0("Z_", v)]] <- seasonal_z(met[[v]], met$slot)
   met$D_VPD <- met$Z_VPD
-  for (v in paste0("SM", 1:4)) met[[paste0("D_", v)]] <- -met[[paste0("Z_", v)]]
+  met$D_SM1 <- -met$Z_SM1
   # D_VPD、D_SM均为越大越干；因此正相关表示干湿异常同向变化。
   met$days <- c(pmin(8, as.numeric(diff(met$date))), 8)
 
-  for (v in paste0("SM", 1:4)) {
-    met[[paste0("r_", v)]] <- rolling_cor(met$D_VPD, met[[paste0("D_", v)]],
-                                         met$date, window_n)
-  }
+  met$r_SM1 <- rolling_cor(met$D_VPD, met$D_SM1, met$date, window_n)
   # 先按相关系数区分“同步耦合”和“弱/反向耦合”；这不代表干旱同时发生。
   met$coupling <- ifelse(is.na(met$r_SM1), NA_character_,
                          ifelse(met$r_SM1 >= cor_cut, "Synchronous", "Asynchronous"))

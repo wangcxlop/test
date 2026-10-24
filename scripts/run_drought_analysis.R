@@ -36,9 +36,6 @@ drought_result <- local({
     threshold = 1,          # 干旱阈值：季节性z分数>=1
     window_n = 23L,        # 向后23期滑动窗口，约半年
     cor_cut = 0.3,         # 同步耦合的操作性相关阈值
-    bootstrap_n = 999L,
-    block_n = 23L,
-    seed = 20261023,
     plotter = plot_drought_results # 图片统一保存到output/images/
   )
   do.call(run_drought_analysis, config)

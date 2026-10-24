@@ -1,9 +1,8 @@
 # 绘图函数库：加载时只定义函数，不读取数据、不输出图片。
 
-# 从完整分析的输出恢复绘图数据，不运行回归或bootstrap。
+# 从完整分析的输出恢复绘图数据，不重新执行分析。
 read_plot_inputs <- function(out_dir) {
-  files <- c("04_analysis_data.csv", "10_GPP_response_slopes.csv",
-             file.path("metadata", "plot_settings.rds"))
+  files <- c("04_analysis_data.csv", file.path("metadata", "plot_settings.rds"))
   missing <- files[!file.exists(file.path(out_dir, files))]
   if (length(missing)) {
     stop("缺少绘图输入：", paste(missing, collapse = ", "),
@@ -11,29 +10,16 @@ read_plot_inputs <- function(out_dir) {
   }
   dat <- read.csv(file.path(out_dir, files[1L]), stringsAsFactors = FALSE,
                   na.strings = c("", "NA"))
-  slopes <- read.csv(file.path(out_dir, files[2L]), stringsAsFactors = FALSE,
-                     na.strings = c("", "NA"))
-  settings <- readRDS(file.path(out_dir, files[3L]))
+  settings <- readRDS(file.path(out_dir, files[2L]))
   required_data <- c("date", "site", "D_VPD", "D_SM1", "r_SM1", "GPP",
                      "coupling", "drought_state")
-  required_slopes <- c("index", "coupling", "slope", "lower_95", "upper_95")
-  if (!all(required_data %in% names(dat)) ||
-      !all(required_slopes %in% names(slopes))) {
-    stop("绘图CSV缺少必要列，请重新运行完整分析。", call. = FALSE)
-  }
-  if (!is.list(settings) ||
-      !all(c("threshold", "cor_cut") %in% names(settings)) ||
-      !all(vapply(settings[c("threshold", "cor_cut")], function(x) {
-        is.numeric(x) && length(x) == 1L && is.finite(x)
-      }, logical(1)))) {
-    stop("plot_settings.rds缺少有效阈值，请重新运行完整分析。", call. = FALSE)
-  }
+  if (!all(required_data %in% names(dat))) stop("绘图CSV缺少必要列，请重新运行完整分析。")
   dat$date <- as.Date(dat$date)
   if (anyNA(dat$date)) stop("绘图数据包含无效日期。", call. = FALSE)
   dat <- dat[order(dat$date), ]
   dat$coupling <- factor(dat$coupling, levels = c("Asynchronous", "Synchronous"))
   groups <- unique(as.character(dat$coupling[is.finite(dat$GPP) & !is.na(dat$coupling)]))
-  list(dat = dat, slopes = slopes, threshold = settings$threshold,
+  list(dat = dat, threshold = settings$threshold,
        cor_cut = settings$cor_cut, two_groups = length(groups) == 2L)
 }
 
@@ -44,8 +30,9 @@ draw_plot <- function(name, fun, out_dir, height = 1000) {
   fun()
 }
 
-plot_drought_results <- function(dat, slopes, threshold, cor_cut, two_groups, out_dir) {
+plot_drought_results <- function(dat, threshold, cor_cut, two_groups, out_dir) {
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+  dat$coupling <- factor(dat$coupling, levels = c("Asynchronous", "Synchronous"))
   draw_plot(out_dir = out_dir, name = "12_time_series.png", function() {
     par(mfrow = c(3, 1), mar = c(3, 4, 2, 1))
     plot(dat$date, dat$D_VPD, type = "l", col = "firebrick", ylab = "Drought z-score",
@@ -71,19 +58,4 @@ plot_drought_results <- function(dat, slopes, threshold, cor_cut, two_groups, ou
             xlab = "", ylab = "GPP anomaly", main = "By actual drought occurrence")
     abline(h = 0, lty = 2)
   })
-  draw_plot(out_dir = out_dir, name = "14_response_slopes.png", function() {
-    par(mar = c(5, 5, 3, 1))
-    y <- slopes$slope
-    plot(seq_along(y), y, xlim = c(0.5, length(y) + 0.5),
-         ylim = range(c(0, slopes$lower_95, slopes$upper_95), na.rm = TRUE),
-         pch = 19, xaxt = "n", xlab = "", ylab = "Adjusted GPP slope per drought z",
-         main = "GPP response with 95% moving-block bootstrap intervals")
-    axis(1, at = seq_along(y), labels = paste(slopes$index, slopes$coupling, sep = "\n"),
-         las = 1, cex.axis = 0.8)
-    if (!two_groups) mtext("Missing regime: slope not estimable", side = 3, cex = 0.7)
-    arrows(seq_along(y), slopes$lower_95, seq_along(y), slopes$upper_95,
-           angle = 90, code = 3, length = 0.06)
-    abline(h = 0, lty = 2)
-  })
 }
-
