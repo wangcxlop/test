@@ -1,7 +1,4 @@
-# 读取和保存数据
-# GPP已是异常值，无需再去季节化
 
-# 检查日期、站点和重复记录
 read_input <- function(name, required, data_dir) {
   path <- file.path(data_dir, name)
   if (!file.exists(path)) stop("找不到文件：", path)
@@ -27,7 +24,6 @@ read_drought_inputs <- function(data_dir) {
        gpp = gpp |> select(site, date, GPP))
 }
 
-# 保存结果
 write_drought_outputs <- function(dat, response, event_summary, out_dir, window_n) {
   dir.create(file.path(out_dir, "reports"), recursive = TRUE, showWarnings = FALSE)
   write.csv(dat, file.path(out_dir, "04_analysis_data.csv"), row.names = FALSE, na = "")

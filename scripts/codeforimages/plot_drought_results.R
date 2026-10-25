@@ -1,4 +1,3 @@
-# 绘制时间序列和GPP箱线图
 plot_drought_results <- function(dat, out_dir) {
   threshold <- dat$threshold[1]
   cor_cut <- dat$cor_cut[1]

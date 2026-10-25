@@ -1,7 +1,4 @@
-# 计算干旱指标和耦合类型
 
-# 按年内8天时段，用全期数据计算季节性z分数
-# SM指数取负号，数值越大越干；不是SPI/SPEI
 seasonal_z <- function(x) {
   z <- rep(NA_real_, length(x))
   ok <- is.finite(x)
@@ -11,7 +8,6 @@ seasonal_z <- function(x) {
   z
 }
 
-# 统计干旱强度、时长和烈度
 event_table <- function(dates, index, days, label, threshold) {
   dry <- is.finite(index) & index >= threshold
   gap <- c(TRUE, as.numeric(diff(dates)) > 8)
@@ -39,7 +35,6 @@ event_table <- function(dates, index, days, label, threshold) {
   events
 }
 
-# 向后滑动相关：至少80%有效配对，不跨越8天以上缺口
 rolling_cor <- function(x, y, dates, width) {
   ans <- rep(NA_real_, length(x))
   if (length(x) < width) return(ans)
@@ -63,10 +58,9 @@ prepare_drought_indices <- function(met, threshold, window_n, cor_cut) {
     ungroup() |>
     arrange(date) |>
     mutate(
-      D_VPD = Z_VPD, D_SM1 = -Z_SM1, # 两种指数越大越干
+      D_VPD = Z_VPD, D_SM1 = -Z_SM1,
       days = c(pmin(8, as.numeric(diff(date))), 8),
       r_SM1 = rolling_cor(D_VPD, D_SM1, date, window_n),
-      # 耦合同步不等于同时干旱
       coupling = case_when(
         is.na(r_SM1) ~ NA_character_,
         r_SM1 >= cor_cut ~ "Synchronous",

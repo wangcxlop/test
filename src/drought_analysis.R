@@ -1,4 +1,3 @@
-# 读取数据、计算指标、分组比较并保存
 run_drought_analysis <- function(data_dir, out_dir, threshold = 1, window_n = 23L, cor_cut = 0.3) {
   inputs <- read_drought_inputs(data_dir)
   met <- prepare_drought_indices(inputs$met, threshold, window_n, cor_cut)

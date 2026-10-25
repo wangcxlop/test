@@ -1,8 +1,4 @@
-# 读取分析CSV，单独画图
-# 终端：Rscript scripts/codeforimages/run_images.R
-# RStudio：source("scripts/codeforimages/run_images.R", encoding = "UTF-8")
 local({
-  # 根据脚本位置定位项目
   source_files <- lapply(sys.frames(), function(frame) frame$ofile)
   source_files <- Filter(function(path) is.character(path) && length(path) == 1L,
                          source_files)

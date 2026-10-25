@@ -1,4 +1,3 @@
-# 比较各组GPP均值和Pearson相关
 
 paired_correlation <- function(x, y) {
   ok <- is.finite(x) & is.finite(y)
