@@ -1,11 +1,9 @@
-# 项目根目录运行：Rscript final_sricpt/final_script.R
 suppressPackageStartupMessages(library(dplyr))
 threshold <- 1
 window_n <- 23L
 cor_cut <- 0.3
 out_dir <- "output"
 
-# 季节标准化与有效配对相关
 z_score <- function(x) {
   z <- rep(NA_real_, length(x))
   ok <- is.finite(x)
@@ -18,7 +16,6 @@ safe_cor <- function(x, y, min_pairs = 3) {
   cor(x[ok], y[ok])
 }
 
-# 读取并标准化VPD和SM1，数值越大越干
 met <- read.csv("Rbackage/ERA5L_TWSA.csv") |>
   select(site, date, VPD, SM1) |> mutate(date = as.Date(date)) |> arrange(date)
 gpp <- read.csv("Rbackage/GPP_anomaly.csv") |> select(site, date, GPP) |> mutate(date = as.Date(date))
@@ -27,7 +24,6 @@ met <- met |> mutate(slot = (as.integer(format(date, "%j")) - 1L) %/% 8L + 1L) |
   arrange(date) |> mutate(days = c(pmin(8, as.numeric(diff(date))), 8))
 gap <- c(TRUE, as.numeric(diff(met$date)) > 8)
 
-# 连续干旱的时长、强度和烈度
 event_tables <- list()
 for (v in c("D_VPD", "D_SM1")) {
   event_tables[[v]] <- met |>
@@ -39,7 +35,6 @@ for (v in c("D_VPD", "D_SM1")) {
 }
 events <- bind_rows(event_tables)
 
-# 滑动相关：80%有效配对，不跨越8天以上缺口
 met$r_SM1 <- NA_real_
 for (i in seq_len(max(0, nrow(met) - window_n + 1))) {
   ids <- seq.int(i, length.out = window_n)
@@ -55,7 +50,6 @@ response <- dat |> filter(!is.na(coupling), is.finite(GPP)) |> group_by(coupling
   summarise(n_GPP = n(), mean_GPP = if (n() > 0) mean(GPP) else NA_real_,
             r_VPD = safe_cor(GPP, D_VPD), r_SM1 = safe_cor(GPP, D_SM1), .groups = "drop")
 
-# 保存结果；空组不能比较，相关不代表因果
 dir.create(file.path(out_dir, "reports"), recursive = TRUE, showWarnings = FALSE)
 dir.create(file.path(out_dir, "images"), recursive = TRUE, showWarnings = FALSE)
 write.csv(dat, file.path(out_dir, "04_analysis_data.csv"), row.names = FALSE, na = "")
@@ -68,7 +62,6 @@ capture.output({
   cat("耦合同步不等于同时干旱。NA表示无法估计，相关不代表因果或统计显著。\n")
 }, file = file.path(out_dir, "reports", "15_methods_and_results.txt"))
 
-# 三幅时间序列和一幅GPP分组箱线图
 png(file.path(out_dir, "images", "12_time_series.png"), width = 1600, height = 1200, res = 150)
 par(mfrow = c(3, 1), mar = c(3, 4, 2, 1))
 plot(dat$date, dat$D_VPD, type = "l", col = "red", xlab = "", ylab = "Drought index",
